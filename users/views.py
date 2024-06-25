@@ -1,8 +1,8 @@
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import permissions, status
-from rest_framework.decorators import permission_classes
-from rest_framework.exceptions import ValidationError, NotFound
+# from rest_framework.decorators import permission_classes
+# from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from shared.utility import send_email, check_email_or_phone
+# from shared.utility import send_email, check_email_or_phone
 from .serialisers import *
 from .models import User, DONE, CODE_VERIFIED, NEW, VIA_EMAIL, VIA_PHONE
 import logging
@@ -72,7 +72,7 @@ class GetNewVerification(APIView):
                 logger.info(f"Verification code {code} sent to email {user.email}")
             elif user.auth_type == VIA_PHONE:
                 code = user.create_verify_code(VIA_PHONE)
-                send_email(user.phone_number, code)  # If using SMS, use appropriate function
+                send_email(user.phone_number, code)
                 logger.info(f"Verification code {code} sent to phone {user.phone_number}")
             else:
                 data = {"message": "Invalid authentication type"}
