@@ -13,6 +13,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from shared.utility import send_email, check_email_or_phone
 from .serialisers import *
 from .models import User, DONE, CODE_VERIFIED, NEW, VIA_EMAIL, VIA_PHONE
+import logging
 
 
 class CreateUserView(CreateAPIView):
@@ -60,33 +61,43 @@ class GetNewVerification(APIView):
 
     def get(self, request, *args, **kwargs):
         user = self.request.user
-        self.check_verification(user)
-        if user.auth_type == VIA_EMAIL:
-            code = user.create_verify_code(VIA_EMAIL)
-            send_email(user.email, code)
-        elif user.auth_type == VIA_PHONE:
-            code = user.create_verify_code(VIA_PHONE)
-            send_email(user.phone_number, code)
-        else:
-            data = {
-                "message": "Email yoki telefon raqami notogri"
-            }
-            raise ValidationError(data)
+        logger.info(f"User {user.id} requested new verification code")
 
-        return Response(
-            {
+        try:
+            self.check_verification(user)
+
+            if user.auth_type == VIA_EMAIL:
+                code = user.create_verify_code(VIA_EMAIL)
+                send_email(user.email, code)
+                logger.info(f"Verification code {code} sent to email {user.email}")
+            elif user.auth_type == VIA_PHONE:
+                code = user.create_verify_code(VIA_PHONE)
+                send_email(user.phone_number, code)  # If using SMS, use appropriate function
+                logger.info(f"Verification code {code} sent to phone {user.phone_number}")
+            else:
+                data = {"message": "Invalid authentication type"}
+                raise ValidationError(data)
+
+            return Response({
                 "success": True,
-                "message": "Tasdiqlash kodingiz qaytadan jo'natildi."
-            }
-        )
+                "message": "Verification code successfully resent."
+            })
+
+        except ValidationError as ve:
+            logger.error(f"Validation error: {ve}")
+            return Response({"success": False, "message": str(ve)}, status=400)
+
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return Response({"success": False, "message": "An unexpected error occurred. Please try again."},
+                            status=500)
 
     @staticmethod
     def check_verification(user):
         verifies = user.verify_codes.filter(expiration_time__gte=datetime.now(), is_confirmed=False)
         if verifies.exists():
             data = {
-                "message": "Kodingiz hali ishlatish uchun yaroqli. Biroz kutib turing"
-            }
+                "message": "Your current verification code is still valid. Please wait before requesting a new one."}
             raise ValidationError(data)
         # if user.auth_status == CODE_VERIFIED:
         #     data = {
@@ -168,6 +179,9 @@ class LogOutView(APIView):
             return Response(status=400)
 
 
+logger = logging.getLogger(__name__)
+
+
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny, ]
     serializer_class = ForgotPasswordSerializer
@@ -177,22 +191,31 @@ class ForgotPasswordView(APIView):
         serializer.is_valid(raise_exception=True)
         email_or_phone = serializer.validated_data.get('email_or_phone')
         user = serializer.validated_data.get('user')
-        if check_email_or_phone(email_or_phone) == 'phone':
-            code = user.create_verify_code(VIA_PHONE)
-            send_email(email_or_phone, code)
-        elif check_email_or_phone(email_or_phone) == 'email':
-            code = user.create_verify_code(VIA_EMAIL)
-            send_email(email_or_phone, code)
+        try:
+            if check_email_or_phone(email_or_phone) == 'phone':
+                code = user.create_verify_code(VIA_PHONE)
+                send_email(email_or_phone, code)
+            elif check_email_or_phone(email_or_phone) == 'email':
+                code = user.create_verify_code(VIA_EMAIL)
+                send_email(email_or_phone, code)
 
-        return Response(
-            {
-                "success": True,
-                'message': "Tasdiqlash kodi muvaffaqiyatli yuborildi",
-                "access": user.token()['access'],
-                "refresh": user.token()['refresh_token'],
-                "user_status": user.auth_status,
-            }, status=200
-        )
+            return Response(
+                {
+                    "success": True,
+                    'message': "Tasdiqlash kodi muvaffaqiyatli yuborildi",
+                    "access": user.token()['access'],
+                    "refresh": user.token()['refresh_token'],
+                    "user_status": user.auth_status,
+                }, status=200
+            )
+        except Exception as e:
+            logger.error(f"IntegrityError: {e}")
+            return Response(
+                {
+                    "success": False,
+                    'message': "An error occurred. Please try again."
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class ResetPasswordView(UpdateAPIView):

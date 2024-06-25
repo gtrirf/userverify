@@ -72,7 +72,7 @@ class Email:
 
 def send_email(email, code):
     html_content = render_to_string(
-        'email/authentication/activate_account.html',
+        'email/activate_account.html',
         {"code": code}
     )
     Email.send_email(

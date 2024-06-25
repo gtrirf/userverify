@@ -1,10 +1,10 @@
-import random
-import uuid
-from datetime import datetime, timedelta
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from shared.models import BaseModel
+import random
+import uuid
+from datetime import datetime, timedelta
 from rest_framework_simplejwt.tokens import RefreshToken
 
 ORDINARY_USER, MANAGER, ADMIN = ('ordinary_user', 'manager', 'admin')
@@ -98,7 +98,7 @@ class User(AbstractUser, BaseModel):
 
 
 PHONE_EXPIRE = 2
-EMAIL_EXPIRE = 2
+EMAIL_EXPIRE = 5
 
 
 class UserConfirmation(BaseModel):
